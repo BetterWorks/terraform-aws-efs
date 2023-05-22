@@ -3,7 +3,8 @@ provider "aws" {
 }
 
 module "vpc" {
-  source = "git::https://github.com/cloudposse/terraform-aws-vpc.git?ref=tags/0.17.0"
+  source  = "cloudposse/vpc/aws"
+  version = "0.28.1"
 
   cidr_block = "172.16.0.0/16"
 
@@ -11,7 +12,8 @@ module "vpc" {
 }
 
 module "subnets" {
-  source = "git::https://github.com/cloudposse/terraform-aws-dynamic-subnets.git?ref=tags/0.28.0"
+  source  = "cloudposse/dynamic-subnets/aws"
+  version = "0.39.8"
 
   availability_zones   = var.availability_zones
   vpc_id               = module.vpc.vpc_id
@@ -26,10 +28,52 @@ module "subnets" {
 module "efs" {
   source = "../../"
 
-  region          = var.region
-  vpc_id          = module.vpc.vpc_id
-  subnets         = module.subnets.private_subnet_ids
-  security_groups = [module.vpc.vpc_default_security_group_id]
+  region  = var.region
+  vpc_id  = module.vpc.vpc_id
+  subnets = module.subnets.private_subnet_ids
+
+  access_points = {
+    "data" = {
+      posix_user = {
+        gid            = "1001"
+        uid            = "5000"
+        secondary_gids = "1002,1003"
+      }
+      creation_info = {
+        gid         = "1001"
+        uid         = "5000"
+        permissions = "0755"
+      }
+    }
+    "data2" = {
+      posix_user = {
+        gid            = "2001"
+        uid            = "6000"
+        secondary_gids = null
+      }
+      creation_info = {
+        gid         = "123"
+        uid         = "222"
+        permissions = "0555"
+      }
+    }
+  }
+
+  additional_security_group_rules = [
+    {
+      type                     = "ingress"
+      from_port                = 2049
+      to_port                  = 2049
+      protocol                 = "tcp"
+      cidr_blocks              = []
+      source_security_group_id = module.vpc.vpc_default_security_group_id
+      description              = "Allow ingress traffic to EFS from trusted Security Groups"
+    }
+  ]
+
+  transition_to_ia = ["AFTER_7_DAYS"]
+
+  security_group_create_before_destroy = false
 
   context = module.this.context
 }
