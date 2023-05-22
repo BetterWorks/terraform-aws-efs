@@ -121,13 +121,12 @@ module "security_group" {
 }
 
 module "dns" {
-  source  = "cloudposse/route53-cluster-hostname/aws"
-  version = "0.12.2"
+  source = "git::https://github.com/cloudposse/terraform-aws-route53-cluster-hostname.git?ref=tags/0.8.0"
 
-  enabled  = local.enabled && length(var.zone_id) > 0
+  enabled  = module.this.enabled && length(var.zone_id) > 0 ? true : false
   dns_name = var.dns_name == "" ? module.this.id : var.dns_name
   ttl      = 60
-  zone_id  = try(var.zone_id[0], null)
+  zone_id  = var.zone_id
   records  = [local.dns_name]
 
   context = module.this.context
